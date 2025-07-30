@@ -1,0 +1,12 @@
+# Compiled binaries
+/output/
+
+# Log files
+*.log
+
+# Database file
+*.db
+
+# OS-specific files
+.DS_Store
+Thumbs.db
