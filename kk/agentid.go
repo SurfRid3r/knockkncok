@@ -4,6 +4,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"net"
 )
 
@@ -20,5 +21,5 @@ func getAgentID() (uint64, error) {
 		}
 	}
 
-	return 0, nil
+	return 0, fmt.Errorf("no suitable network interface found for agent ID generation")
 }

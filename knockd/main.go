@@ -44,7 +44,13 @@ func main() {
 		log.Println("Please add the following line to your knockd.toml file:")
 		log.Printf(`key = "%s"`, cfg.Key)
 	}
-	masterKey, _ = base64.StdEncoding.DecodeString(cfg.Key)
+	masterKey, err = base64.StdEncoding.DecodeString(cfg.Key)
+	if err != nil {
+		log.Fatalf("Failed to decode master key: %v", err)
+	}
+	if len(masterKey) != 32 {
+		log.Fatalf("Invalid master key length: expected 32 bytes, got %d", len(masterKey))
+	}
 
 	if cfg.Iface == "" {
 		log.Println("Interface not specified, attempting to auto-select...")
@@ -104,7 +110,11 @@ func main() {
 			if ipLayer == nil {
 				continue
 			}
-			ip, _ := ipLayer.(*layers.IPv4)
+			ip, ok := ipLayer.(*layers.IPv4)
+			if !ok {
+				log.Printf("Failed to assert IPv4 layer from packet")
+				continue
+			}
 
 			info, ok := Verify(pkt.Data(), keyE, keyH, nonceStore)
 			if !ok {
@@ -114,9 +124,13 @@ func main() {
 
 			ttl := ttlEngine.Next(info.AgentID, info.IP)
 			if err := fw.Add(info.IP, cfg.AllowPorts, ttl); err != nil {
-				log.Println("add rule fail", err)
+				log.Printf("Failed to add firewall rule for %s: %v", info.IP, err)
+			} else {
+				log.Printf("Added firewall rule for %s with TTL %d minutes", info.IP, ttl)
 			}
-			db.IncrementScore(info.AgentID, info.IP)
+			if err := db.IncrementScore(info.AgentID, info.IP); err != nil {
+				log.Printf("Failed to increment score for agent %d, IP %s: %v", info.AgentID, info.IP, err)
+			}
 
 		case sig := <-sigChan:
 			log.Printf("Received signal %v, shutting down gracefully...", sig)
